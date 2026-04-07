@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Petanque Kalender Pro++</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: Arial; margin:0; background:#f4f6f8; }
+.container { max-width:1000px; margin:auto; padding:10px; }
+h1 { text-align:center; }
+.tabs { display:flex; gap:10px; margin-bottom:10px; }
+.tab { padding:8px 12px; background:#ddd; border-radius:8px; cursor:pointer; }
+.active { background:#3498db; color:white; }
+.calendar { display:grid; grid-template-columns: repeat(7, 1fr); gap:5px; }
+.day { background:white; min-height:100px; padding:5px; border-radius:8px; cursor:pointer; }
+.event { font-size:11px; padding:3px; border-radius:5px; margin-top:3px; color:white; }
+form, .panel { background:white; padding:10px; border-radius:10px; margin-bottom:10px; }
+input, select { margin:3px; padding:5px; }
+.hidden { display:none; }
+.modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; }
+.modal-content { background:white; padding:20px; border-radius:10px; width:300px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🎯 Petanque Kalender</h1>
+
+<div class="tabs">
+<div class="tab active" onclick="showTab('calendarTab', this)">Kalender</div>
+<div class="tab" onclick="showTab('statsTab', this)">Statistieken</div>
+</div>
+
+<div id="calendarTab">
+<form onsubmit="addEvent(event)">
+<input type="date" id="date" required>
+<input type="text" id="name" placeholder="Naam" required>
+<input type="text" id="location" placeholder="Locatie">
+<input type="time" id="time">
+<input type="number" id="rounds" placeholder="Ronden">
+
+<select id="type" onchange="updateTeam()">
+<option>TaT</option><option>Doublet</option><option>Triplet</option><option>Kwartet</option><option>Cinqtet</option><option>Sextet</option>
+</select>
+
+<div id="teammates"></div>
+
+<input type="number" id="total" placeholder="Totale kost" oninput="calcPrice()">
+<input type="text" id="perPerson" placeholder="Per persoon" readonly>
+
+<input type="text" id="paidBy" placeholder="Betaald door">
+<label><input type="checkbox" id="paid"> Betaald</label>
+
+<input type="text" id="driver" placeholder="Chauffeur">
+
+<button type="submit">Toevoegen</button>
+</form>
+
+<div>
+<button onclick="changeMonth(-1)">◀</button>
+<span id="monthLabel"></span>
+<button onclick="changeMonth(1)">▶</button>
+</div>
+
+<div class="calendar" id="calendar"></div>
+</div>
+
+<div id="statsTab" class="hidden">
+<div class="panel" id="stats"></div>
+<canvas id="chart"></canvas>
+</div>
+
+<div class="modal" id="modal">
+<div class="modal-content" id="modalContent"></div>
+</div>
+
+</div>
+
+<script>
+const colors = {TaT:'#3498db',Doublet:'#2ecc71',Triplet:'#f39c12',Kwartet:'#9b59b6',Cinqtet:'#e74c3c',Sextet:'#1abc9c'};
+let events = JSON.parse(localStorage.getItem('events')||'[]');
+let currentDate = new Date();
+let chart;
+
+function showTab(tab, el){
+document.getElementById('calendarTab').classList.add('hidden');
+document.getElementById('statsTab').classList.add('hidden');
+document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+document.getElementById(tab).classList.remove('hidden');
+el.classList.add('active');
+if(tab==='statsTab') renderStats();
+}
+
+function updateTeam(){
+const map={TaT:0,Doublet:1,Triplet:2,Kwartet:3,Cinqtet:4,Sextet:5};
+let html='';
+for(let i=0;i<map[type.value];i++){html+=`<input class="mate" placeholder="Ploegmaat ${i+1}">`}
+teammates.innerHTML=html;
+calcPrice();
+}
+
+function calcPrice(){
+const map={TaT:1,Doublet:2,Triplet:3,Kwartet:4,Cinqtet:5,Sextet:6};
+if(total.value) perPerson.value=(total.value/map[type.value]).toFixed(2);
+}
+
+function addEvent(e){
+e.preventDefault();
+const mates=[...document.querySelectorAll('.mate')].map(m=>m.value);
+events.push({date:date.value,name:name.value,location:location.value,time:time.value,rounds:rounds.value,type:type.value,mates,total:total.value,per:perPerson.value,paid:paid.checked,paidBy:paidBy.value,driver:driver.value,stats:{}});
+localStorage.setItem('events',JSON.stringify(events));
+render();
+}
+
+function changeMonth(dir){ currentDate.setMonth(currentDate.getMonth()+dir); render(); }
+
+function render(){
+calendar.innerHTML='';
+const year=currentDate.getFullYear();
+const month=currentDate.getMonth();
+monthLabel.innerText=currentDate.toLocaleString('nl-BE',{month:'long',year:'numeric'});
+const days=new Date(year,month+1,0).getDate();
+
+for(let i=1;i<=days;i++){
+const dayDiv=document.createElement('div');
+dayDiv.className='day';
+dayDiv.innerHTML=`<strong>${i}</strong>`;
+
+const dayEvents=events.filter(ev=>{
+const d=new Date(ev.date);
+return d.getDate()==i && d.getMonth()==month && d.getFullYear()==year;
+});
+
+dayEvents.forEach((ev,index)=>{
+const eDiv=document.createElement('div');
+eDiv.className='event';
+eDiv.style.background=colors[ev.type];
+eDiv.innerText=ev.name;
+eDiv.onclick=()=>openModal(ev,index);
+dayDiv.appendChild(eDiv);
+});
+
+calendar.appendChild(dayDiv);
+}
+}
+
+function openModal(ev,index){
+modal.style.display='flex';
+modalContent.innerHTML=`
+<h3>${ev.name}</h3>
+<p>${ev.location} - ${ev.time}</p>
+<button onclick="editStats(${index})">Resultaat</button>
+<button onclick="deleteEvent(${index})">Verwijderen</button>
+<button onclick="closeModal()">Sluiten</button>`;
+}
+
+function closeModal(){ modal.style.display='none'; }
+
+function deleteEvent(i){ events.splice(i,1); localStorage.setItem('events',JSON.stringify(events)); closeModal(); render(); }
+
+function editStats(i){
+modalContent.innerHTML=`
+<h3>Resultaat</h3>
+<input id="win" placeholder="Gewonnen">
+<input id="loss" placeholder="Verloren">
+<input id="pf" placeholder="Punten voor">
+<input id="pa" placeholder="Punten tegen">
+<input id="pos" placeholder="Plaats">
+<input id="prize" placeholder="Prijs">
+<button onclick="saveStats(${i})">Opslaan</button>`;
+}
+
+function saveStats(i){
+events[i].stats={win:+win.value,loss:+loss.value,pf:+pf.value,pa:+pa.value,pos:+pos.value,prize:prize.value};
+localStorage.setItem('events',JSON.stringify(events)); closeModal();
+}
+
+function renderStats(){
+let totalWin=0,totalLoss=0;
+let positions=[];
+let results=[];
+
+events.forEach(ev=>{
+if(ev.stats && ev.stats.win!==undefined){
+totalWin+=ev.stats.win||0;
+totalLoss+=ev.stats.loss||0;
+if(ev.stats.pos) positions.push(ev.stats.pos);
+if(ev.stats.pos) results.push({name:ev.name,pos:ev.stats.pos});
+}
+});
+
+results.sort((a,b)=>a.pos-b.pos);
+let top3=results.slice(0,3);
+
+let html=`<h2>Statistieken</h2>
+<p>Winst: ${totalWin} | Verlies: ${totalLoss}</p>
+<p>Ratio: ${(totalWin/(totalLoss||1)).toFixed(2)}</p>
+<h3>Top 3</h3>`;
+
+top3.forEach(r=>{ html+=`<div>${r.name} - ${r.pos}e plaats</div>` });
+
+stats.innerHTML=html;
+
+if(chart) chart.destroy();
+chart=new Chart(document.getElementById('chart'),{
+type:'line',
+data:{labels:positions.map((_,i)=>i+1),datasets:[{data:positions}]}
+});
+}
+
+updateTeam(); render();
+</script>
+</body>
+</html>
