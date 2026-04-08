@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Petanque Kalender</title>
+<title>Petanque Kalender Pro UI</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin:0; background:#eef1f5; }
@@ -12,19 +12,20 @@ h1 { text-align:center; }
 .tab { padding:10px 15px; background:#dfe6e9; border-radius:20px; cursor:pointer; }
 .active { background:#0984e3; color:white; }
 .calendar { display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; }
-.day { background:white; min-height:110px; padding:6px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.05); }
+.day { background:white; min-height:110px; padding:6px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.05); cursor:pointer; }
 .event { font-size:11px; padding:4px; border-radius:6px; margin-top:4px; color:white; cursor:pointer; }
 form, .panel { background:white; padding:12px; border-radius:12px; margin-bottom:12px; box-shadow:0 2px 5px rgba(0,0,0,0.05); }
 input, select { margin:4px; padding:6px; border-radius:6px; border:1px solid #ccc; }
 button { padding:6px 10px; border:none; border-radius:8px; background:#0984e3; color:white; cursor:pointer; }
-.hidden { display:none; }
 .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); display:none; justify-content:center; align-items:center; }
-.modal-content { background:white; padding:20px; border-radius:12px; width:320px; }
+.modal-content { background:white; padding:20px; border-radius:12px; width:320px; display:flex; flex-direction:column; gap:10px; }
+.modal-content button { width:100%; }
+.hidden { display:none; }
 </style>
 </head>
 <body>
 <div class="container">
-<h1>Petanque Kalender</h1>
+<h1>🎯 Petanque Kalender</h1>
 
 <div class="tabs">
 <div class="tab active" onclick="showTab('calendarTab', this)">Kalender</div>
@@ -78,42 +79,88 @@ let currentDate=new Date(); let chart; let editIndex=null;
 
 function showTab(tab,el){document.getElementById('calendarTab').classList.add('hidden');document.getElementById('statsTab').classList.add('hidden');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.getElementById(tab).classList.remove('hidden');el.classList.add('active');if(tab==='statsTab'){initYears();renderStats();}}
 
-function updateTeam(){const map={TaT:0,Doublet:1,Triplet:2,Kwartet:3,Cinqtet:4,Sextet:5};let html='';for(let i=0;i<map[type.value];i++){html+=`<input class="mate" placeholder="Ploegmaat ${i+1}">`}teammates.innerHTML=html;calcPrice();}
+function updateTeam(){const map={TaT:0,Doublet:1,Triplet:2,Kwartet:3,Cinqtet:4,Sextet:5};let html='';for(let i=0;i<map[document.getElementById('type').value];i++){html+=`<input class="mate" placeholder="Ploegmaat ${i+1}">`}document.getElementById('teammates').innerHTML=html;calcPrice();}
 
-function calcPrice(){const map={TaT:1,Doublet:2,Triplet:3,Kwartet:4,Cinqtet:5,Sextet:6};if(total.value) perPerson.value=(total.value/map[type.value]).toFixed(2);}
+function calcPrice(){const map={TaT:1,Doublet:2,Triplet:3,Kwartet:4,Cinqtet:5,Sextet:6};let total=document.getElementById('total').value;let type=document.getElementById('type').value;if(total) document.getElementById('perPerson').value=(total/map[type]).toFixed(2);}
 
 function addEvent(e){e.preventDefault();const mates=[...document.querySelectorAll('.mate')].map(m=>m.value);
-const data={date:date.value,name:name.value,location:location.value,time:time.value,rounds:rounds.value,type:type.value,mates,total:total.value,per:perPerson.value,paid:paid.checked,paidBy:paidBy.value,driver:driver.value,stats:{}};
-if(editIndex!==null){events[editIndex]=data;editIndex=null;} else {events.push(data);}localStorage.setItem('events',JSON.stringify(events));render();}
+const data={
+  date: document.getElementById('date').value,
+  name: document.getElementById('name').value,
+  location: document.getElementById('location').value,
+  time: document.getElementById('time').value,
+  rounds: document.getElementById('rounds').value,
+  type: document.getElementById('type').value,
+  mates,
+  total: document.getElementById('total').value,
+  per: document.getElementById('perPerson').value,
+  paid: document.getElementById('paid').checked,
+  paidBy: document.getElementById('paidBy').value,
+  driver: document.getElementById('driver').value,
+  stats:{}
+};
+
+if(editIndex!==null){events[editIndex]=data;editIndex=null;} else {events.push(data);} 
+localStorage.setItem('events',JSON.stringify(events));
+render();
+}
 
 function changeMonth(dir){currentDate.setMonth(currentDate.getMonth()+dir);render();}
 
-function render(){calendar.innerHTML='';const year=currentDate.getFullYear();const month=currentDate.getMonth();monthLabel.innerText=currentDate.toLocaleString('nl-BE',{month:'long',year:'numeric'});
+function render(){const cal=document.getElementById('calendar');cal.innerHTML='';const year=currentDate.getFullYear();const month=currentDate.getMonth();document.getElementById('monthLabel').innerText=currentDate.toLocaleString('nl-BE',{month:'long',year:'numeric'});
 const days=new Date(year,month+1,0).getDate();
-for(let i=1;i<=days;i++){const dDiv=document.createElement('div');dDiv.className='day';dDiv.innerHTML=`<strong>${i}</strong>`;
-const dayEvents=events.filter((ev,idx)=>{const d=new Date(ev.date);return d.getDate()==i&&d.getMonth()==month&&d.getFullYear()==year;});
 
-dayEvents.forEach(ev=>{const idx=events.indexOf(ev);const eDiv=document.createElement('div');eDiv.className='event';eDiv.style.background=colors[ev.type];eDiv.innerText=ev.name;eDiv.onclick=()=>openModal(ev,idx);dDiv.appendChild(eDiv);});
-calendar.appendChild(dDiv);} }
+for(let i=1;i<=days;i++){
+const dDiv=document.createElement('div');dDiv.className='day';dDiv.innerHTML=`<strong>${i}</strong>`;
 
-function openModal(ev,i){modal.style.display='flex';modalContent.innerHTML=`<h3>${ev.name}</h3><button onclick="editEvent(${i})">✏️ Bewerken</button><button onclick="editStats(${i})">📊 Resultaat</button><button onclick="deleteEvent(${i})">🗑️ Verwijderen</button><button onclick="closeModal()">Sluiten</button>`;}
+dDiv.onclick=()=>{
+let selected=new Date(year,month,i).toISOString().split('T')[0];
+document.getElementById('date').value=selected;
+window.scrollTo({top:0,behavior:'smooth'});
+};
 
-function editEvent(i){const ev=events[i];editIndex=i;date.value=ev.date;name.value=ev.name;location.value=ev.location;time.value=ev.time;rounds.value=ev.rounds;type.value=ev.type;total.value=ev.total;perPerson.value=ev.per;paid.checked=ev.paid;paidBy.value=ev.paidBy;driver.value=ev.driver;updateTeam();closeModal();}
+const dayEvents=events.map((ev,idx)=>({...ev,idx})).filter(ev=>{
+const d=new Date(ev.date);
+return d.getDate()==i&&d.getMonth()==month&&d.getFullYear()==year;
+});
 
-function closeModal(){modal.style.display='none';}
+dayEvents.forEach(ev=>{
+const eDiv=document.createElement('div');
+eDiv.className='event';
+eDiv.style.background=colors[ev.type];
+eDiv.innerText=ev.name || '(geen naam)';
+eDiv.onclick=(e)=>{e.stopPropagation();openModal(ev,ev.idx);} 
+
+dDiv.appendChild(eDiv);
+});
+
+cal.appendChild(dDiv);
+}
+}
+
+function openModal(ev,i){document.getElementById('modal').style.display='flex';document.getElementById('modalContent').innerHTML=`
+<h3>${ev.name}</h3>
+<button onclick="editEvent(${i})">✏️ Bewerken</button>
+<button onclick="editStats(${i})">📊 Resultaat</button>
+<button onclick="deleteEvent(${i})">🗑️ Verwijderen</button>
+<button onclick="closeModal()">Sluiten</button>`;}
+
+function editEvent(i){const ev=events[i];editIndex=i;document.getElementById('date').value=ev.date;document.getElementById('name').value=ev.name;document.getElementById('location').value=ev.location;document.getElementById('time').value=ev.time;document.getElementById('rounds').value=ev.rounds;document.getElementById('type').value=ev.type;document.getElementById('total').value=ev.total;document.getElementById('perPerson').value=ev.per;document.getElementById('paid').checked=ev.paid;document.getElementById('paidBy').value=ev.paidBy;document.getElementById('driver').value=ev.driver;updateTeam();closeModal();window.scrollTo({top:0,behavior:'smooth'});}
+
+function closeModal(){document.getElementById('modal').style.display='none';}
 function deleteEvent(i){events.splice(i,1);localStorage.setItem('events',JSON.stringify(events));closeModal();render();}
 
-function editStats(i){modalContent.innerHTML=`<h3>Resultaat</h3><input id="win" placeholder="Gewonnen"><input id="loss" placeholder="Verloren"><input id="pf" placeholder="Punten voor"><input id="pa" placeholder="Punten tegen"><input id="pos" placeholder="Plaats"><input id="prize" placeholder="Prijs"><button onclick="saveStats(${i})">Opslaan</button>`;}
+function editStats(i){document.getElementById('modalContent').innerHTML=`<h3>Resultaat</h3><input id="win" placeholder="Gewonnen"><input id="loss" placeholder="Verloren"><input id="pf" placeholder="Punten voor"><input id="pa" placeholder="Punten tegen"><input id="pos" placeholder="Plaats"><input id="prize" placeholder="Prijs"><button onclick="saveStats(${i})">Opslaan</button>`;}
 
 function saveStats(i){events[i].stats={win:+win.value,loss:+loss.value,pf:+pf.value,pa:+pa.value,pos:+pos.value,prize:prize.value};localStorage.setItem('events',JSON.stringify(events));closeModal();}
 
-function initYears(){let years=[...new Set(events.map(e=>new Date(e.date).getFullYear()))];yearFilter.innerHTML=years.map(y=>`<option>${y}</option>`).join('');}
+function initYears(){let years=[...new Set(events.map(e=>new Date(e.date).getFullYear()))];document.getElementById('yearFilter').innerHTML=years.map(y=>`<option>${y}</option>`).join('');}
 
-function renderStats(){const year=+yearFilter.value||new Date().getFullYear();let filtered=events.filter(e=>new Date(e.date).getFullYear()==year);
+function renderStats(){const year=+document.getElementById('yearFilter').value||new Date().getFullYear();let filtered=events.filter(e=>new Date(e.date).getFullYear()==year);
 let win=0,loss=0,positions=[];
 filtered.forEach(e=>{if(e.stats){win+=e.stats.win||0;loss+=e.stats.loss||0;if(e.stats.pos)positions.push(e.stats.pos);}});
 
-stats.innerHTML=`<h2>${year}</h2><p>Winst: ${win} - Verlies: ${loss}</p><p>Ratio: ${(win/(loss||1)).toFixed(2)}</p>`;
+document.getElementById('stats').innerHTML=`<h2>${year}</h2><p>Winst: ${win} - Verlies: ${loss}</p><p>Ratio: ${(win/(loss||1)).toFixed(2)}</p>`;
 
 if(chart) chart.destroy();chart=new Chart(document.getElementById('chart'),{type:'line',data:{labels:positions.map((_,i)=>i+1),datasets:[{data:positions}]}});
 }
